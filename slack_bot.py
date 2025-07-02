@@ -21,6 +21,23 @@ CREATE TABLE IF NOT EXISTS posted (
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+)
+""")
+cursor.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('last_seen', '0')")
+conn.commit()
+
+def get_last_seen():
+    cursor.execute("SELECT value FROM meta WHERE key = 'last_seen'")
+    return float(cursor.fetchone()[0])
+
+def set_last_seen(timestamp):
+    cursor.execute("UPDATE meta SET value = ? WHERE key = 'last_seen'", (str(timestamp),))
+    conn.commit()
+
 def fetch_listings():
     url = "https://raw.githubusercontent.com/vanshb03/Summer2026-Internships/dev/.github/scripts/listings.json"
     response = requests.get(url)
@@ -43,29 +60,37 @@ def format_message(listing):
 
 def post_to_slack():
     listings = fetch_listings()
-    now = time.time()
-    cutoff = now - (60 * 60 * 24) 
+    last_seen = get_last_seen()
 
-    for listing in listings:
-        if (
-            not listing.get("active", False) or
-            is_posted(listing["id"]) or
-            listing.get("date_updated", 0) < cutoff
-        ):
-            continue
-        try:
-            message = format_message(listing)
-            slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
-            print(f"Posted: {listing['title']}")
-            mark_posted(listing["id"])
-        except SlackApiError as e:
-            print(f"Slack API Error: {e.response['error']}")
+    if not listings:
+        print("No listings available.")
+        return
+
+    listings.sort(key=lambda l: l.get("date_updated", 0), reverse=True)
+    latest = listings[0]
+
+    if (
+        not latest.get("active", False)
+        or is_posted(latest["id"])
+        or latest.get("date_updated", 0) <= last_seen
+    ):
+        print("No new listings to post.")
+        return
+
+    try:
+        message = format_message(latest)
+        slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
+        print(f"Posted: {latest['title']}")
+        mark_posted(latest["id"])
+        set_last_seen(latest["date_updated"])
+    except SlackApiError as e:
+        print(f"Slack API Error: {e.response['error']}")
 
 def run_forever():
     while True:
-        print(f"🔍 Checking for new listings at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
+        print(f"Checking for new listings at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
         post_to_slack()
-        print("⏳ Waiting 5 minutes...\n")
+        print("Waiting 5 minutes...\n")
         time.sleep(60 * 5)
 
 if __name__ == "__main__":
