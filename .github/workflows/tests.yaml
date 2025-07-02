@@ -20,4 +20,8 @@ jobs:
           pip install pytest
 
       - name: Run tests
+        env:
+          GENAI_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
         run: python3 -m unittest test_joblin.py
