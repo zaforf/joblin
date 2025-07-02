@@ -31,7 +31,7 @@ options.add_argument("user-agent=Mozilla/5.0 (Macintosh;" +
 
 driver = webdriver.Chrome(options=options)
 
-conn = sqlite3.connect('internships.db')
+conn = sqlite3.connect('fields.db')
 cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS fields (

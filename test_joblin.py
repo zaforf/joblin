@@ -9,7 +9,7 @@ class TestJoblin(unittest.TestCase):
         listings = fetch_listings()
         found = False
         company_name = "Citadel Securities"
-        title = "Trading Fundamental Analyst Internship"
+        title = "Trading Fundamental Analyst Intern"
         for listing in listings:
             if listing['company_name'] == company_name and \
                listing['title'] == title:
