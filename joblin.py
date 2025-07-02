@@ -101,10 +101,11 @@ def extract_fields(url, default=True):
        sum(line == "N/A" for line in extracted_text) == len(extracted_text):
         return {"Error!": "We couldn't extract any fields (bot protection?)."}
     for i, field in enumerate(fields):
+        field_name = field['field_name'].split(' ')[0]
         if i < len(extracted_text):
-            return_object[field['field_name']] = extracted_text[i].strip()
+            return_object[field_name] = extracted_text[i].strip()
         else:
-            return_object[field['field_name']] = "N/A"
+            return_object[field_name] = "N/A"
 
     return return_object
 
