@@ -6,6 +6,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from datetime import datetime
+from joblin import extract_fields
 
 load_dotenv()
 SLACK_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS meta (
 )
 """)
 
-cursor.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('last_seen', '0')")
+cursor.execute("INSERT OR IGNORE INTO meta" +
+               "(key, value) VALUES ('last_seen', '0')")
 conn.commit()
 
 
@@ -39,12 +41,14 @@ def get_last_seen():
 
 
 def set_last_seen(timestamp):
-    cursor.execute("UPDATE meta SET value = ? WHERE key = 'last_seen'", (str(timestamp),))
+    cursor.execute("UPDATE meta SET value = ?" +
+                   "WHERE key = 'last_seen'", (str(timestamp),))
     conn.commit()
 
 
 def fetch_listings():
-    url = "https://raw.githubusercontent.com/vanshb03/Summer2026-Internships/dev/.github/scripts/listings.json"
+    url = "https://raw.githubusercontent.com/vanshb03/" + \
+          "Summer2026-Internships/dev/.github/scripts/listings.json"
     response = requests.get(url)
     return response.json()
 
@@ -60,10 +64,19 @@ def mark_posted(listing_id):
 
 
 def format_message(listing):
+    extracted = extract_fields(listing["url"])
+    field_lines = [
+        f"*{key}*: {value}"
+        for key, value in extracted.items()
+        if value != "N/A"
+    ]
+    field_info = "\n".join(field_lines)
+
     return (
         f"*{listing['company_name']}* – {listing['title']}\n"
         f"{', '.join(listing['locations'])} | {listing['season']} Internship\n"
-        f"<{listing['url']}|Apply here>"
+        f"<{listing['url']}|Apply here>\n\n"
+        f"{field_info}"
     )
 
 
@@ -72,12 +85,12 @@ def post_to_slack():
     last_seen = get_last_seen()
 
     new_listings = [
-        l for l in listings
-        if l.get("date_updated", 0) > last_seen
-        and l.get("active", False)
-        and not is_posted(l["id"])
+        item for item in listings
+        if item.get("date_updated", 0) > last_seen
+        and item.get("active", False)
+        and not is_posted(item["id"])
     ]
-    new_listings.sort(key=lambda l: l.get("date_updated", 0))
+    new_listings.sort(key=lambda item: item.get("date_updated", 0))
 
     if not new_listings:
         print("No new listings to post.")
@@ -86,7 +99,12 @@ def post_to_slack():
     for listing in new_listings:
         try:
             message = format_message(listing)
-            slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
+            slack_client.chat_postMessage(
+                channel=CHANNEL_ID,
+                text=message,
+                unfurl_links=False,
+                unfurl_media=False
+            )
             print(f"Posted: {listing['title']}")
             mark_posted(listing["id"])
             set_last_seen(listing["date_updated"])
@@ -96,7 +114,8 @@ def post_to_slack():
 
 def run_forever():
     while True:
-        print(f"Checking for new listings at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
+        print("Checking for new listings at " +
+              f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
         post_to_slack()
         print("Waiting 5 minutes...\n")
         time.sleep(60 * 5)
