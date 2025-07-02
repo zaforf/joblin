@@ -1,0 +1,6 @@
+requests
+slack_sdk
+python-dotenv
+beautifulsoup4
+selenium
+google-genai
