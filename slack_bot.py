@@ -6,6 +6,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from dotenv import load_dotenv
 from datetime import datetime
+from joblin import extract_fields
 
 load_dotenv()
 SLACK_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -60,10 +61,19 @@ def mark_posted(listing_id):
 
 
 def format_message(listing):
+    extracted = extract_fields(listing["url"])
+    field_lines = [
+        f"*{key}*: {value}"
+        for key, value in extracted.items()
+        if value != "N/A"
+    ]
+    field_info = "\n".join(field_lines)
+
     return (
         f"*{listing['company_name']}* – {listing['title']}\n"
         f"{', '.join(listing['locations'])} | {listing['season']} Internship\n"
-        f"<{listing['url']}|Apply here>"
+        f"<{listing['url']}|Apply here>\n\n"
+        f"{field_info}"
     )
 
 
