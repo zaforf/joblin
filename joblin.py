@@ -25,6 +25,10 @@ There should be {} lines in total, with only the value and not the field name.
 
 options = Options()
 options.add_argument("--headless")
+options.add_argument("user-agent=Mozilla/5.0 (Macintosh;" +
+                     " Intel Mac OS X 10_15_7) AppleWebKit/537.36" +
+                     " (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
+
 driver = webdriver.Chrome(options=options)
 
 conn = sqlite3.connect('internships.db')
@@ -78,10 +82,12 @@ def delete_field(field_id):
 
 def extract_fields(url, default=True):
     driver.get(url)
-    time.sleep(1)
+    time.sleep(2)
     soup = BeautifulSoup(driver.page_source, 'html.parser')
     listing_text = soup.get_text(separator=' ', strip=True)
 
+    if not listing_text:
+        return {"Error!": "We couldn't extract any fields (bot protection?)."}
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         config=types.GenerateContentConfig(system_instruction=system_message),
@@ -91,8 +97,9 @@ def extract_fields(url, default=True):
     return_object = {}
     fields = get_fields()
 
-    if len(extracted_text) == 0:
-        return {"Error!": "We couldn't extract any fields."}
+    if len(extracted_text) == 0 or \
+       sum(line == "N/A" for line in extracted_text) == len(extracted_text):
+        return {"Error!": "We couldn't extract any fields (bot protection?)."}
     for i, field in enumerate(fields):
         if i < len(extracted_text):
             return_object[field['field_name']] = extracted_text[i].strip()
