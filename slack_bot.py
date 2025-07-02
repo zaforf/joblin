@@ -15,6 +15,7 @@ slack_client = WebClient(token=SLACK_TOKEN)
 
 conn = sqlite3.connect("internships.db")
 cursor = conn.cursor()
+
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS posted (
     id TEXT PRIMARY KEY
@@ -27,29 +28,36 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT
 )
 """)
+
 cursor.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('last_seen', '0')")
 conn.commit()
+
 
 def get_last_seen():
     cursor.execute("SELECT value FROM meta WHERE key = 'last_seen'")
     return float(cursor.fetchone()[0])
 
+
 def set_last_seen(timestamp):
     cursor.execute("UPDATE meta SET value = ? WHERE key = 'last_seen'", (str(timestamp),))
     conn.commit()
+
 
 def fetch_listings():
     url = "https://raw.githubusercontent.com/vanshb03/Summer2026-Internships/dev/.github/scripts/listings.json"
     response = requests.get(url)
     return response.json()
 
+
 def is_posted(listing_id):
     cursor.execute("SELECT 1 FROM posted WHERE id = ?", (listing_id,))
     return cursor.fetchone() is not None
 
+
 def mark_posted(listing_id):
     cursor.execute("INSERT INTO posted (id) VALUES (?)", (listing_id,))
     conn.commit()
+
 
 def format_message(listing):
     return (
@@ -58,33 +66,33 @@ def format_message(listing):
         f"<{listing['url']}|Apply here>"
     )
 
+
 def post_to_slack():
     listings = fetch_listings()
     last_seen = get_last_seen()
 
-    if not listings:
-        print("No listings available.")
-        return
+    new_listings = [
+        l for l in listings
+        if l.get("date_updated", 0) > last_seen
+        and l.get("active", False)
+        and not is_posted(l["id"])
+    ]
+    new_listings.sort(key=lambda l: l.get("date_updated", 0))
 
-    listings.sort(key=lambda l: l.get("date_updated", 0), reverse=True)
-    latest = listings[0]
-
-    if (
-        not latest.get("active", False)
-        or is_posted(latest["id"])
-        or latest.get("date_updated", 0) <= last_seen
-    ):
+    if not new_listings:
         print("No new listings to post.")
         return
 
-    try:
-        message = format_message(latest)
-        slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
-        print(f"Posted: {latest['title']}")
-        mark_posted(latest["id"])
-        set_last_seen(latest["date_updated"])
-    except SlackApiError as e:
-        print(f"Slack API Error: {e.response['error']}")
+    for listing in new_listings:
+        try:
+            message = format_message(listing)
+            slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
+            print(f"Posted: {listing['title']}")
+            mark_posted(listing["id"])
+            set_last_seen(listing["date_updated"])
+        except SlackApiError as e:
+            print(f"Slack API Error: {e.response['error']}")
+
 
 def run_forever():
     while True:
@@ -92,6 +100,7 @@ def run_forever():
         post_to_slack()
         print("Waiting 5 minutes...\n")
         time.sleep(60 * 5)
+
 
 if __name__ == "__main__":
     run_forever()
