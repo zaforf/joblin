@@ -99,7 +99,12 @@ def post_to_slack():
     for listing in new_listings:
         try:
             message = format_message(listing)
-            slack_client.chat_postMessage(channel=CHANNEL_ID, text=message)
+            slack_client.chat_postMessage(
+                channel=CHANNEL_ID,
+                text=message,
+                unfurl_links=False,
+                unfurl_media=False
+            )
             print(f"Posted: {listing['title']}")
             mark_posted(listing["id"])
             set_last_seen(listing["date_updated"])
