@@ -1,3 +1,3 @@
 # Joblin
 
-A CLI tool for fetching internship postings and showing important data like expected grad date, pay, and type of work
+A CLI tool & Slack bot for automatically fetching internship postings and displaying important data like requirements, pay, and type of work.

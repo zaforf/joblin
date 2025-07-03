@@ -36,7 +36,7 @@ cursor = conn.cursor()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    field_name TEXT
+    field_name TEXT UNIQUE
 )
 """)
 default_fields = [

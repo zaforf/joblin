@@ -1,3 +1,4 @@
 .env
 internships.db
 fields.db
+__pycache__/
